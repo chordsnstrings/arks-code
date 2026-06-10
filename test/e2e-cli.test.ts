@@ -135,6 +135,45 @@ describe.skipIf(!hasBuild)('e2e: built CLI against a live mock gateway', () => {
     }
   });
 
+  it('gated one-shot: approval prompt appears, piped "y" approves the write (criterion 4)', async () => {
+    const server = await startSseServer([
+      { toolCalls: [{ id: 'c1', name: 'write_file', args: { path: 'approved.txt', content: 'bonjour' } }] },
+      { content: 'Wrote it.' },
+    ]);
+    try {
+      const res = await runCli(['write a greeting file'], {
+        cwd: dir,
+        env: { ARKS_LLM_KEY: 'k', ARKS_LLM_BASE_URL: server.url, ARKS_CODE_HOME: home },
+        stdin: 'y\n',
+      });
+      expect(res.code).toBe(0);
+      expect(res.stdout).toContain('── WRITE approved.txt');
+      expect(res.stdout).toContain('+ bonjour');
+      expect(res.stdout).toContain('Apply? [y]es [n]o');
+      expect(fs.readFileSync(path.join(dir, 'approved.txt'), 'utf8')).toBe('bonjour');
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('gated one-shot: piped "n" denies and nothing is written', async () => {
+    const server = await startSseServer([
+      { toolCalls: [{ id: 'c1', name: 'write_file', args: { path: 'denied.txt', content: 'non' } }] },
+      { content: 'Understood.' },
+    ]);
+    try {
+      const res = await runCli(['write a file'], {
+        cwd: dir,
+        env: { ARKS_LLM_KEY: 'k', ARKS_LLM_BASE_URL: server.url, ARKS_CODE_HOME: home },
+        stdin: 'n\n',
+      });
+      expect(res.code).toBe(0);
+      expect(fs.existsSync(path.join(dir, 'denied.txt'))).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
   it('fails fast with a clear message when ARKS_LLM_KEY is missing', async () => {
     const res = await runCli(['task'], {
       cwd: dir,

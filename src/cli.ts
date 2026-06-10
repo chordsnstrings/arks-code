@@ -17,6 +17,7 @@ import { GatewayClient } from './gateway/client.js';
 import { Ledger } from './ledger/ledger.js';
 import { makeApprovalPrompter } from './repl/approval.js';
 import { makePalette } from './repl/colors.js';
+import { LineInput } from './repl/input.js';
 import { header } from './repl/render.js';
 import { renderGatewayError, runRepl } from './repl/repl.js';
 import { Session, repoName } from './repl/session.js';
@@ -68,11 +69,11 @@ function packageVersion(): string {
 }
 
 /** First run with no config → interactive init (SDD §9). */
-async function firstRunInit(rl: readline.Interface): Promise<Config> {
+async function firstRunInit(input: LineInput): Promise<Config> {
   process.stdout.write('No config found — first-run setup.\n');
   let baseURL = '';
   while (!baseURL) {
-    baseURL = (await rl.question('ARKS AI Gateway base URL (e.g. https://gateway.arks.internal/v1): ')).trim();
+    baseURL = (await input.question('ARKS AI Gateway base URL (e.g. https://gateway.arks.internal/v1): ')).trim();
   }
   const cfg: Config = { ...DEFAULT_CONFIG, baseURL };
   saveConfig(cfg);
@@ -101,11 +102,12 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const input = new LineInput(rl, out);
   try {
     let config = loadConfig();
     if (!config.baseURL) {
       if (!configFileExists() && process.stdin.isTTY) {
-        config = await firstRunInit(rl);
+        config = await firstRunInit(input);
       } else {
         process.stderr.write(
           'No gateway base URL configured. Set ARKS_LLM_BASE_URL or add "baseURL" to ~/.arks-code/config.json.\n',
@@ -136,7 +138,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         branch: currentGitBranch(gitRoot),
         pricing: config.pricing,
       }),
-      promptUser: makeApprovalPrompter(rl, out, palette),
+      promptUser: makeApprovalPrompter(input, out, palette),
       out,
       palette,
     });
@@ -170,7 +172,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     );
     if (args.yolo) out(palette.yellow('--yolo: approval gates off (deny-list still active)\n'));
     out(palette.dim('Type a task, or /help for commands.\n'));
-    await runRepl({ session, rl, out, palette });
+    await runRepl({ session, rl, input, out, palette });
     return 0;
   } finally {
     rl.close();

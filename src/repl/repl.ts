@@ -1,6 +1,7 @@
-import * as readline from 'node:readline/promises';
+import type * as readline from 'node:readline/promises';
 import { GatewayError } from '../gateway/client.js';
 import type { Palette } from './colors.js';
+import type { LineInput } from './input.js';
 import type { Session } from './session.js';
 
 export const HELP_TEXT = `Commands:
@@ -62,13 +63,14 @@ export function renderGatewayError(err: unknown, palette: Palette): string {
 export interface ReplOptions {
   session: Session;
   rl: readline.Interface;
+  input: LineInput;
   out: (s: string) => void;
   palette: Palette;
 }
 
 /** Interactive REPL loop. Ctrl+C once cancels the current call, twice exits. */
 export async function runRepl(opts: ReplOptions): Promise<void> {
-  const { session, rl, out, palette } = opts;
+  const { session, rl, input, out, palette } = opts;
   let turnAbort: AbortController | null = null;
   let lastSigint = 0;
 
@@ -93,7 +95,7 @@ export async function runRepl(opts: ReplOptions): Promise<void> {
   for (;;) {
     let line: string;
     try {
-      line = (await rl.question(palette.accent('❯ '))).trim();
+      line = (await input.question(palette.accent('❯ '))).trim();
     } catch {
       break; // stdin closed
     }
