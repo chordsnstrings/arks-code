@@ -55,6 +55,14 @@ manual: test/acceptance.md.
    markers before writing the next stdin line — closing stdin early kills
    readline mid-turn.
 
+8. **npm bin symlinks break naive entry guards.** Comparing argv[1] verbatim
+   against import.meta.url fails when invoked via the global symlink — that
+   shipped as `arks` printing nothing and exiting 0. The bin target is
+   src/bin.ts, which runs main() unconditionally and turns any startup error
+   into stderr + exit 1; cli.ts keeps a realpath-aware guard only for direct
+   `node dist/cli.js` runs. Regression tests execute the binary THROUGH a
+   symlink (test/e2e-bin.test.ts); keep them when touching the entry path.
+
 ## Conventions
 
 - TypeScript strict; ESM (NodeNext) — internal imports need the `.js` suffix.

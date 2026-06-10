@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as readline from 'node:readline/promises';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   apiKey,
   configDir,
@@ -179,9 +180,17 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
+/**
+ * Direct-run support for `node dist/cli.js`. The installed binary is bin.js
+ * (which runs main() unconditionally); this guard only exists so a direct
+ * invocation of this file also works. It resolves symlinks on BOTH sides —
+ * comparing argv[1] verbatim against import.meta.url breaks under npm's
+ * global bin symlink (that bug shipped as silent exit-0; see bin.js).
+ */
 const isDirectRun = (() => {
+  if (!process.argv[1]) return false;
   try {
-    return process.argv[1] !== undefined && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href;
+    return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
