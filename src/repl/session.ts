@@ -65,9 +65,16 @@ export class Session {
           compactThreshold: this.opts.config.compactThreshold,
           estimateTokens,
           compact: async (messages) => {
-            const res = await compactMessages(messages, { stream: this.opts.stream, model: this.model });
-            if (res.compacted) out(palette.dim('⏺ context compacted\n'));
-            return res;
+            // criterion 6: the loop continues without user-visible failure,
+            // even if the summarization call itself fails
+            try {
+              const res = await compactMessages(messages, { stream: this.opts.stream, model: this.model });
+              if (res.compacted) out(palette.dim('⏺ context compacted\n'));
+              return res;
+            } catch {
+              out(palette.dim('⏺ compaction failed; continuing with full context\n'));
+              return { compacted: false };
+            }
           },
           onTextDelta: (t) => renderer.push(t),
           onToolStart: () => {
